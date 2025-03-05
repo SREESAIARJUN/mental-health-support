@@ -2,12 +2,12 @@ import os
 import streamlit as st
 import torch
 import numpy as np
-import sounddevice as sd
 import google.generativeai as genai
-from queue import Queue
 from faster_whisper import WhisperModel
 from nltk.sentiment import SentimentIntensityAnalyzer
 from TTS.api import TTS
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
+import av
 
 # Configure Google Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -16,10 +16,10 @@ genai.configure(api_key=GEMINI_API_KEY)
 # Initialize Sentiment Analyzer
 sia = SentimentIntensityAnalyzer()
 
-# Load Whisper for real-time STT (Optimized for fast transcription)
+# Load Whisper for real-time STT
 whisper_model = WhisperModel("small", device="cuda" if torch.cuda.is_available() else "cpu", compute_type="int8")
 
-# Load TTS model for voice output
+# Load TTS model
 tts = TTS("tts_models/en/ljspeech/tacotron2-DDC", progress_bar=False, gpu=torch.cuda.is_available())
 
 # Emotion-based voice adjustments
@@ -29,10 +29,7 @@ emotion_voices = {
     "neutral": {"speed": 1.0, "pitch": 1.0},
 }
 
-# Real-time Audio Queue
-audio_queue = Queue()
-
-# Function to detect emotion from text
+# Function to detect emotion
 def detect_emotion(text):
     sentiment = sia.polarity_scores(text)
     if sentiment["compound"] >= 0.05:
@@ -53,41 +50,18 @@ def generate_speech(text, emotion):
     tts.tts_to_file(text=text, file_path="response.wav", speed=config["speed"], pitch=config["pitch"])
     return "response.wav"
 
-# Real-time audio callback function
-def callback(indata, frames, time, status):
-    if status:
-        print(status)
-    audio_queue.put(indata.copy())
+# WebRTC audio processor class
+class AudioProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.audio_buffer = []
 
-# Function to start real-time speech recognition
-def real_time_transcription():
-    samplerate = 16000  # Whisper expects 16kHz audio
-    with sd.InputStream(samplerate=samplerate, channels=1, dtype=np.float32, callback=callback):
-        st.write("🎙️ **Listening... Speak now!**")
-        audio_data = []
-        while True:
-            chunk = audio_queue.get()
-            audio_data.append(chunk)
-
-            # Convert to numpy array for Whisper processing
-            audio_array = np.concatenate(audio_data, axis=0)
-
-            # Transcribe with Whisper
-            segments, _ = whisper_model.transcribe(audio_array)
-            transcribed_text = " ".join(segment.text for segment in segments)
-
-            # Display partial transcription
-            st.write(f"**You:** {transcribed_text}")
-
-            # Break if user stops speaking (adjust as needed)
-            if len(transcribed_text) > 10:  # Stop on long enough speech
-                break
-
-        return transcribed_text
+    def recv_audio(self, frame: av.AudioFrame):
+        audio_np = np.array(frame.to_ndarray()).flatten()
+        self.audio_buffer.append(audio_np)
+        return None  # No need to process, just collect data
 
 # Streamlit UI
-st.title("🗣️ Real-Time Emotion-Aware AI Chatbot")
-st.write("Chat with AI that understands emotions & responds with voice!")
+st.title("🗣️ Real-Time AI Chatbot with Emotional Voice Response")
 
 # Chat via Text
 user_input = st.text_input("Type your message here:")
@@ -101,13 +75,25 @@ if st.button("Send"):
         st.audio(response_audio, format="audio/wav")
 
 # Chat via Voice
-if st.button("🎤 Speak"):
-    transcribed_text = real_time_transcription()
+st.write("🎤 **Speak in real-time using WebRTC:**")
+webrtc_ctx = webrtc_streamer(
+    key="speech",
+    mode=WebRtcMode.SENDRECV,
+    audio_processor_factory=AudioProcessor,
+    media_stream_constraints={"video": False, "audio": True},
+)
 
-    if transcribed_text:
-        emotion = detect_emotion(transcribed_text)
-        response_text = get_chat_response(transcribed_text)
-        response_audio = generate_speech(response_text, emotion)
+if webrtc_ctx.audio_processor:
+    audio_data = np.concatenate(webrtc_ctx.audio_processor.audio_buffer, axis=0)
 
-        st.markdown(f"**🤖 Chatbot ({emotion} emotion):** {response_text}")
-        st.audio(response_audio, format="audio/wav")
+    if len(audio_data) > 0:
+        segments, _ = whisper_model.transcribe(audio_data)
+        transcribed_text = " ".join(segment.text for segment in segments)
+
+        if transcribed_text:
+            emotion = detect_emotion(transcribed_text)
+            response_text = get_chat_response(transcribed_text)
+            response_audio = generate_speech(response_text, emotion)
+
+            st.markdown(f"**🤖 Chatbot ({emotion} emotion):** {response_text}")
+            st.audio(response_audio, format="audio/wav")
