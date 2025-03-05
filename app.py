@@ -14,7 +14,7 @@ from TTS.api import TTS
 nltk.download("vader_lexicon")
 
 # Set up Google Gemini API Key (store in Streamlit Cloud Secrets for deployment)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("AIzaSyBCZ6l4qRGHq9UqPej0MsEC2q4aBOCdXYY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Initialize Sentiment Analyzer
