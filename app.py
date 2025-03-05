@@ -9,7 +9,7 @@ import time
 import os
 import random
 
-# Configure Gemini API
+# Configure Gemini APIAPI
 GEMINI_API_KEY = "AIzaSyBCZ6l4qRGHq9UqPej0MsEC2q4aBOCdXYY"
 genai.configure(api_key=GEMINI_API_KEY)
 MODEL_NAME = "gemini-2.0-flash-thinking-exp-01-21"
