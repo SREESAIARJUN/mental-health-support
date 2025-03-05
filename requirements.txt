@@ -1,2 +1,7 @@
 streamlit
 google-generativeai
+whisper
+pyttsx3
+gtts
+transformers
+torch
