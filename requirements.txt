@@ -1,7 +1,8 @@
 streamlit
 google-generativeai
-whisper
-pyttsx3
+openai-whisper
+nest-asyncio
 gtts
-transformers
+pygame
 torch
+textblob
