@@ -1,8 +1,10 @@
 streamlit
-google-generativeai
-openai-whisper
-nest-asyncio
-gtts
-pygame
+faster-whisper
+coqui-tts
+sounddevice
 torch
-textblob
+numpy
+nltk
+google-generativeai
+scipy
+pyaudio
