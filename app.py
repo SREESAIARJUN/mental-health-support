@@ -10,7 +10,7 @@ import os
 import random
 
 # Configure Gemini API
-GEMINI_API_KEY = "your_gemini_api_key_here"
+GEMINI_API_KEY = "AIzaSyBCZ6l4qRGHq9UqPej0MsEC2q4aBOCdXYY"
 genai.configure(api_key=GEMINI_API_KEY)
 MODEL_NAME = "gemini-2.0-flash-thinking-exp-01-21"
 
