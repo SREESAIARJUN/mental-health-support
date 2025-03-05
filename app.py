@@ -1,147 +1,86 @@
 import streamlit as st
 import google.generativeai as genai
 import whisper
-import pyttsx3
-from gtts import gTTS
-import torch
-from transformers import pipeline
-import time
+import tempfile
 import os
-import random
+import gtts
+from textblob import TextBlob
+import nest_asyncio
+import pygame
 
-# Configure Gemini APIAPI
-GEMINI_API_KEY = "AIzaSyBCZ6l4qRGHq9UqPej0MsEC2q4aBOCdXYY"
-genai.configure(api_key=GEMINI_API_KEY)
-MODEL_NAME = "gemini-2.0-flash-thinking-exp-01-21"
+# Fix asyncio issues in Streamlit
+nest_asyncio.apply()
 
-# Load AI Sentiment Model (Deep Learning)
-sentiment_model = pipeline("sentiment-analysis")
+# Configure Google Gemini API
+genai.configure(api_key="YOUR_GEMINI_API_KEY")
+model = genai.GenerativeModel("gemini-2.0-pro")
 
-# Initialize TTS engine
-engine = pyttsx3.init()
+# Streamlit UI Config
+st.set_page_config(page_title="Mental Health Support", page_icon="🧠", layout="wide")
+st.title("🧠 Mental Health Support Chatbot")
 
-# Create a directory for saving journals
-if not os.path.exists("journals"):
-    os.makedirs("journals")
-
-# Function: Advanced Sentiment Analysis
-def get_sentiment(text):
-    result = sentiment_model(text)[0]
-    label = result["label"]
-    score = result["score"]
-    
-    if label == "POSITIVE" and score > 0.7:
-        return "positive 😊"
-    elif label == "NEGATIVE" and score > 0.7:
-        return "negative 😔"
-    else:
-        return "neutral 😐"
-
-# Function: Convert text to speech
-def speak(text):
-    tts = gTTS(text, lang='en')
-    tts.save("response.mp3")
-    os.system("mpg321 response.mp3" if os.name != "nt" else "start response.mp3")
-
-# Function: Convert speech to text
-def voice_input():
-    model = whisper.load_model("base")
-    with st.spinner("🎙️ Listening..."):
-        audio_path = "voice_input.wav"
-        os.system(f"arecord -d 5 -f cd {audio_path}" if os.name != "nt" else "Recording not supported")
-        result = model.transcribe(audio_path)
-        return result["text"]
-
-# Function: Generate Motivational Image
-def generate_motivation_image():
-    motivation_list = [
-        "Stay strong, you got this!",
-        "Every day is a fresh start!",
-        "You are worthy of happiness!"
-    ]
-    return random.choice(motivation_list)
-
-# Function: Save Journal Entry
-def save_journal(entry):
-    filename = f"journals/journal_{time.time()}.txt"
-    with open(filename, "w") as file:
-        file.write(entry)
-    st.sidebar.success("📝 Journal saved successfully!")
-
-# System Prompt for AI
-system_prompt = """
-You are a compassionate AI designed to provide mental health support.
-- Be empathetic, understanding, and encouraging.
-- Analyze emotions from user input and respond accordingly.
-- Offer relaxation techniques, mindfulness exercises, and self-care tips.
-- Encourage seeking professional help when necessary.
-- Avoid diagnosing medical conditions or offering treatment.
-"""
-
-# Streamlit UI
-st.set_page_config(page_title="Mental Health Support System", page_icon="💙", layout="wide")
-st.markdown("<h1 style='text-align: center; color: #4CAF50;'>🧘 Mental Health Support System</h1>", unsafe_allow_html=True)
-st.write("Hello! I'm here to support you. Feel free to share your thoughts.")
-
-# Chat History
+# Initialize session state for chat history
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "Bot", "message": "How are you feeling today?"}]
+    st.session_state.messages = []
 
-# Display Chat Messages
+# Display previous chat messages
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st.write(msg["message"])
+        st.write(msg["content"])
 
-# User Input Options
-col1, col2 = st.columns([3, 1])
-with col1:
-    user_input = st.chat_input("Type your thoughts...")
-with col2:
-    if st.button("🎙️ Speak"):
-        user_input = voice_input()
+# Function to analyze sentiment
+def analyze_sentiment(text):
+    sentiment_score = TextBlob(text).sentiment.polarity
+    if sentiment_score > 0.3:
+        return "positive"
+    elif sentiment_score < -0.3:
+        return "negative"
+    else:
+        return "neutral"
 
-# Process User Input
-if user_input:
-    sentiment = get_sentiment(user_input)  # Analyze emotion
+# Function to generate response based on sentiment
+def get_response(user_input):
+    sentiment = analyze_sentiment(user_input)
+    prompt = f"You are a supportive AI therapist. The user is feeling {sentiment}. Respond with empathy and encouragement.\nUser: {user_input}\nAI:"
+    response = model.generate_content(prompt).text
+    return response
 
-    # Append user message
-    st.session_state.messages.append({"role": "USER", "message": f"{user_input} ({sentiment})"})
+# Function to generate speech from text
+def text_to_speech(text):
+    tts = gtts.gTTS(text, lang="en")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio:
+        tts.save(temp_audio.name)
+        return temp_audio.name
 
-    # Display user message
-    with st.chat_message("USER"):
-        st.write(user_input)
+# Function to transcribe voice input using Whisper
+def transcribe_audio(audio_path):
+    model = whisper.load_model("base")
+    result = model.transcribe(audio_path)
+    return result["text"]
 
-    # Generate AI Response
-    full_prompt = f"{system_prompt}\nUser: {user_input} (Mood: {sentiment})\nAI:"
-    model = genai.GenerativeModel(MODEL_NAME)
-    response = model.generate_content(full_prompt)
-    
-    bot_reply = response.text.strip() if response else "I'm here to listen. Can you tell me more?"
-    
-    # Append AI response
-    st.session_state.messages.append({"role": "Bot", "message": bot_reply})
+# Audio input feature
+uploaded_audio = st.file_uploader("🎙️ Upload an audio file (MP3, WAV) for voice input", type=["mp3", "wav"])
+if uploaded_audio is not None:
+    with st.spinner("Transcribing..."):
+        with tempfile.NamedTemporaryFile(delete=False) as temp_audio:
+            temp_audio.write(uploaded_audio.getvalue())
+            audio_text = transcribe_audio(temp_audio.name)
+        st.write("🗣️ You said:", audio_text)
+        user_query = audio_text
+else:
+    user_query = st.chat_input("Type your message...")
 
-    # Display AI response
-    with st.chat_message("Bot"):
-        st.write(bot_reply)
+# Chatbot response handling
+if user_query:
+    with st.chat_message("user"):
+        st.write(user_query)
+        st.session_state.messages.append({"role": "user", "content": user_query})
 
-    # Speak AI response
-    speak(bot_reply)
+    with st.chat_message("assistant"):
+        response_text = get_response(user_query)
+        st.write(response_text)
+        st.session_state.messages.append({"role": "assistant", "content": response_text})
 
-# Sidebar: Well-being Tips & Mood Tracker
-st.sidebar.markdown("### 🌿 Mental Well-being Tips")
-st.sidebar.info("✔ Deep breathing & mindfulness\n✔ Stay hydrated & rest well\n✔ Talk to someone you trust\n✔ Engage in hobbies\n✔ Seek professional help if needed")
-
-st.sidebar.markdown("### 📈 Your Mood Tracker")
-moods = [msg["message"].split("(")[-1].strip(")") for msg in st.session_state.messages if "message" in msg]
-mood_counts = {mood: moods.count(mood) for mood in set(moods)}
-st.sidebar.bar_chart(mood_counts)
-
-st.sidebar.markdown("### 🎨 AI Motivation")
-st.sidebar.image(f"https://dummyimage.com/300x200/000/fff&text={generate_motivation_image()}")
-
-# Journal Section
-st.sidebar.markdown("### ✍ Journal Your Thoughts")
-journal_entry = st.sidebar.text_area("Write here...")
-if st.sidebar.button("Save Entry"):
-    save_journal(journal_entry)
+        # Generate and play speech output
+        audio_file = text_to_speech(response_text)
+        st.audio(audio_file, format="audio/mp3")
