@@ -1,10 +1,9 @@
 streamlit
+streamlit-webrtc
 faster-whisper
 coqui-tts
-sounddevice
 torch
 numpy
 nltk
 google-generativeai
-scipy
-pyaudio
+av
