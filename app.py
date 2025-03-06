@@ -7,7 +7,7 @@ import tempfile
 import speech_recognition as sr
 
 # Configure Gemini API
-genai.configure(api_key="AIzaSyCj7X_uJVs2wxNlISNoYv8clt-Vq7u0aiM")
+genai.configure(api_key="AIzaSyB0x0Fv6jiluu8JdFToe4QKXQRHK8SMmrA")
 
 # Initialize the model
 generation_config = {
