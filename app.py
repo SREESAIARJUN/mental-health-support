@@ -7,6 +7,7 @@ import speech_recognition as sr
 from gtts import gTTS
 import tempfile
 import os
+import re
 
 # Configure Gemini API
 genai.configure(api_key="AIzaSyB0x0Fv6jiluu8JdFToe4QKXQRHK8SMmrA")
