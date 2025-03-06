@@ -62,10 +62,8 @@ if "messages" not in st.session_state:
 
 st.title("🧠🎙️ AI Mental Health Support Voice Assistant")
 
-# Sidebar for microphone button
-with st.sidebar:
-    st.write("### Voice Input")
-    audio = audio_recorder()
+st.write("### Voice Input")
+audio = audio_recorder()
 
 if audio is not None:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
