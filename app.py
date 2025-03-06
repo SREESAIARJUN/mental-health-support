@@ -21,33 +21,66 @@ st.markdown("""
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* Audio recorder button styling */
-        .audio-recorder {
-            position: fixed;
-            bottom: 75px;
-            right: 20px;
-            z-index: 1001;
-        }
-        
         /* Chat container */
         .chat-messages {
             margin-bottom: 70px;
+            padding-bottom: 100px;
         }
         
-        /* Streamlit chat input styling */
-        .stChatInput {
+        /* Input container styling */
+        .input-container {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
             background-color: white;
-            padding: 20px;
+            padding: 1rem;
             z-index: 1000;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+        }
+        
+        /* Chat input styling */
+        .stChatInput {
+            bottom: 0;
+            background-color: white;
+            padding: 20px 140px 20px 20px !important;
+        }
+        
+        /* Audio button styling */
+        .audio-button {
+            position: fixed;
+            bottom: 24px;
+            right: 30px;
+            z-index: 1001;
+        }
+        
+        /* Audio recorder custom styling */
+        .audio-recorder {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+        
+        .audio-recorder:hover {
+            background: #f0f0f0 !important;
+            border-radius: 50%;
         }
         
         /* Message styling */
         .stMarkdown {
             min-height: 0;
+        }
+        
+        /* Hide default streamlit elements */
+        .block-container {
+            padding-bottom: 0px;
+            padding-top: 0px;
+            margin-top: 0px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -161,13 +194,20 @@ for message in st.session_state.messages:
     display_message(message)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Audio recorder
-st.markdown('<div class="audio-recorder">', unsafe_allow_html=True)
-audio = audio_recorder(key="audio_recorder")
+# Input container with integrated mic
+st.markdown('<div class="input-container">', unsafe_allow_html=True)
+col1, col2 = st.columns([20, 1])
+with col1:
+    prompt = st.chat_input("Type your message here...")
+with col2:
+    st.markdown('<div class="audio-button">', unsafe_allow_html=True)
+    audio = audio_recorder(
+        key="audio_recorder",
+        pause_threshold=2.0,
+        sample_rate=44100
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
-
-# Chat input
-prompt = st.chat_input("Type your message here...")
 
 # Handle audio input
 if audio is not None:
