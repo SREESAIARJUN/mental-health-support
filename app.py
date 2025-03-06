@@ -16,26 +16,37 @@ st.markdown("""
         .stApp {
             margin: 0;
             padding: 0;
+            overflow: hidden;
         }
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
-        .fixed-input {
+        
+        /* Chat container styles */
+        .chat-container {
+            height: calc(100vh - 180px);
+            overflow-y: auto;
+            padding-bottom: 80px;
+        }
+        
+        /* Fixed input container styles */
+        .input-container {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
             background-color: white;
             padding: 20px;
+            border-top: 1px solid #ddd;
             z-index: 1000;
         }
-        .chat-container {
-            margin-bottom: 100px;  /* Space for fixed input */
+        
+        /* Hide Streamlit's default elements */
+        .stTextInput, .stAudio {
+            margin-bottom: 0 !important;
         }
-        .audio-button {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1001;
+        
+        div[data-testid="stVerticalBlock"] {
+            padding-bottom: 0px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -113,6 +124,33 @@ def display_message(message):
             """, unsafe_allow_html=True
         )
 
+def process_audio_to_text(audio_data):
+    """Convert audio to text using speech recognition"""
+    recognizer = sr.Recognizer()
+    try:
+        text = recognizer.recognize_google(audio_data)
+        return text
+    except sr.UnknownValueError:
+        st.error("Could not understand audio")
+        return None
+    except sr.RequestError:
+        st.error("Speech recognition service unavailable")
+        return None
+
+def generate_response(prompt):
+    """Generate response using the Gemini model"""
+    conversation_history = [msg["content"] for msg in st.session_state.messages]
+    response = model.generate_content(conversation_history + [prompt])
+    return clean_markdown(response.text)
+
+def text_to_speech(text):
+    """Convert text to speech and play audio"""
+    tts = gTTS(text=text, lang='en')
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tts_file:
+        tts.save(tts_file.name)
+        st.audio(tts_file.name, format='audio/mp3')
+        os.remove(tts_file.name)
+
 # Initialize chat session
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Hello! I'm here to support you. How are you feeling today?"}]
@@ -122,7 +160,6 @@ with st.sidebar:
     st.title("🧘 Mental Health Assistant")
     st.write("A safe space for emotional support and mental wellness.")
     
-    # Clear chat button
     if st.button('Clear Chat History'):
         st.session_state.messages = [{"role": "assistant", "content": "Hello! I'm here to support you. How are you feeling today?"}]
         st.rerun()
@@ -130,77 +167,52 @@ with st.sidebar:
 # Main chat container
 st.title("Voice AI Mental Health Assistant")
 
-# Chat container with bottom margin
-with st.container():
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    for message in st.session_state.messages:
-        display_message(message)
-    st.markdown('</div>', unsafe_allow_html=True)
+# Chat messages container
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+for message in st.session_state.messages:
+    display_message(message)
+st.markdown('</div>', unsafe_allow_html=True)
 
-# Fixed input container at bottom
-with st.container():
-    st.markdown('<div class="fixed-input">', unsafe_allow_html=True)
-    cols = st.columns([8, 1])
-    
-    with cols[0]:
-        user_input = st.text_input("Type your message:", key="user_text_input")
-    
-    with cols[1]:
-        st.markdown('<div class="audio-button">', unsafe_allow_html=True)
-        audio = audio_recorder(key="audio_recorder")
-        st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+# Fixed input container
+st.markdown('<div class="input-container">', unsafe_allow_html=True)
+col1, col2 = st.columns([8, 1])
+with col1:
+    user_input = st.text_input("Type your message:", key="user_text_input", label_visibility="collapsed")
+with col2:
+    audio = audio_recorder(key="audio_recorder")
+st.markdown('</div>', unsafe_allow_html=True)
 
-# Process voice input
+# Handle audio input
 if audio is not None:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
         tmp_file.write(audio)
         tmp_filename = tmp_file.name
 
-    recognizer = sr.Recognizer()
     with sr.AudioFile(tmp_filename) as source:
-        audio_data = recognizer.record(source)
-        try:
-            transcribed_text = recognizer.recognize_google(audio_data)
+        audio_data = sr.Recognizer().record(source)
+        transcribed_text = process_audio_to_text(audio_data)
+        
+        if transcribed_text:
             st.session_state.messages.append({"role": "user", "content": transcribed_text})
             
-            # Generate response
-            conversation_history = [msg["content"] for msg in st.session_state.messages]
-            response = model.generate_content(conversation_history)
-            response_text = clean_markdown(response.text)
-            st.session_state.messages.append({"role": "assistant", "content": response_text})
-            
-            # Generate audio response
-            tts = gTTS(text=response_text, lang='en')
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tts_file:
-                tts.save(tts_file.name)
-                st.audio(tts_file.name, format='audio/mp3')
-                os.remove(tts_file.name)
+            with st.spinner("Thinking..."):
+                response_text = generate_response(transcribed_text)
+                st.session_state.messages.append({"role": "assistant", "content": response_text})
+                text_to_speech(response_text)
             
             st.rerun()
-            
-        except sr.UnknownValueError:
-            st.error("Could not understand audio")
-        except sr.RequestError:
-            st.error("Speech recognition service unavailable")
 
     os.remove(tmp_filename)
 
-# Process text input
+# Handle text input
 if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
     
     with st.spinner("Thinking..."):
-        conversation_history = [msg["content"] for msg in st.session_state.messages]
-        response = model.generate_content(conversation_history)
-        response_text = clean_markdown(response.text)
+        response_text = generate_response(user_input)
         st.session_state.messages.append({"role": "assistant", "content": response_text})
-        
-        # Generate audio response
-        tts = gTTS(text=response_text, lang='en')
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tts_file:
-            tts.save(tts_file.name)
-            st.audio(tts_file.name, format='audio/mp3')
-            os.remove(tts_file.name)
+        text_to_speech(response_text)
     
+    # Clear the input field
+    st.session_state.user_text_input = ""
     st.rerun()
