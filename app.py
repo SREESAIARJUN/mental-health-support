@@ -91,7 +91,7 @@ if st.session_state.messages:
     conversation_history = [msg["content"] for msg in st.session_state.messages]
     response = model.generate_content(conversation_history)
     response_text = response.text
-    response_text = clean_markdown(respose_text)
+    response_text = clean_markdown(response_text)
     st.session_state.messages.append({"role": "assistant", "content": response_text})
     with st.chat_message("assistant"):
         st.markdown(response_text)
