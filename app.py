@@ -101,5 +101,5 @@ if st.session_state.messages:
     tts = gTTS(text=response_text, lang='en')
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tts_file:
         tts.save(tts_file.name)
-        st.audio(tts_file.name, format='audio/mp3')
+        st.audio(tts_file.name, format='audio/mp3', autoplay = True)
         os.remove(tts_file.name)
