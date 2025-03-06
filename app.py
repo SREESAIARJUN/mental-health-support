@@ -9,6 +9,8 @@ import tempfile
 import os
 import re
 
+
+st.set_page_config(page_title="🧠🎙️ AI Mental Health Support Voice Assistant", layout="wide")
 # Configure Gemini API
 genai.configure(api_key="AIzaSyB0x0Fv6jiluu8JdFToe4QKXQRHK8SMmrA")
 
@@ -58,7 +60,7 @@ def clean_markdown(text):
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-st.title("Voice AI Mental Health Assistant")
+st.title("🧠🎙️ AI Mental Health Support Voice Assistant")
 
 # Sidebar for microphone button
 with st.sidebar:
