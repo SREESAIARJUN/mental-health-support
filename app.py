@@ -37,12 +37,12 @@ model = genai.GenerativeModel(
     """
 )
 
-# Initialize chat history in session state
+# Initialize session state for chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Start chat session
-chat = model.start_chat(
+chat_session = model.start_chat(
     history=[
         {"role": msg["role"], "parts": [msg["content"]]}
         for msg in st.session_state.messages
@@ -54,11 +54,11 @@ def recognize_speech(audio_bytes):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
             temp_audio.write(audio_bytes)
             temp_audio_path = temp_audio.name
-
+        
         recognizer = sr.Recognizer()
         with sr.AudioFile(temp_audio_path) as source:
             audio = recognizer.record(source)
-
+        
         try:
             text = recognizer.recognize_google(audio)
             return text
@@ -69,7 +69,7 @@ def recognize_speech(audio_bytes):
     return "No audio input detected."
 
 def get_gemini_response(prompt):
-    response = chat.send_message(prompt)
+    response = chat_session.send_message(prompt)
     return response.text if response else "Error generating response."
 
 def text_to_speech(text):
@@ -88,14 +88,29 @@ def clean_markdown(text):
 
 # Streamlit UI
 st.title("Voice AI Mental Support Chat")
+st.markdown("""
+<style>
+    .stButton>button {
+        width: 100%;
+        padding: 10px;
+        font-size: 18px;
+    }
+    .stAudio {
+        margin-top: 20px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Display chat history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Get audio input
+# Mic button centered at the bottom
+st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
 audio_bytes = audio_recorder()
+st.markdown("</div>", unsafe_allow_html=True)
+
 if audio_bytes:
     st.write("Processing audio...")
     user_input = recognize_speech(audio_bytes)
@@ -104,7 +119,7 @@ if audio_bytes:
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.markdown(user_input)
-
+        
         # Get AI response
         response = get_gemini_response(user_input)
         response = clean_markdown(response)
@@ -114,7 +129,7 @@ if audio_bytes:
         
         with st.chat_message("assistant"):
             st.markdown(response)
-
+        
         # Convert response to speech
         audio_file = text_to_speech(response)
         st.audio(audio_file, format="audio/mp3")
