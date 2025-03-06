@@ -1,9 +1,5 @@
 streamlit
-streamlit-webrtc
-faster-whisper
-coqui-tts
-torch
-numpy
-nltk
+speechrecognition
+gtts
 google-generativeai
-av
+mpg321
