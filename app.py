@@ -1,13 +1,24 @@
 import streamlit as st
 import google.generativeai as genai
 from audio_recorder_streamlit import audio_recorder
-import numpy as np
-import io
-import re
 import speech_recognition as sr
 from gtts import gTTS
 import tempfile
 import os
+import re
+
+# Page configuration
+st.set_page_config(page_title="🧘 Mental Health Assistant", layout="wide")
+
+# Define style constants
+USER_COLOR = "#E8E8E8"
+ASSISTANT_COLOR = "#036165"
+USER_TEXT_COLOR = "#000000"
+ASSISTANT_TEXT_COLOR = "#FFFFFF"
+BORDER_RADIUS = "8px"
+FONT_FAMILY = "Arial, sans-serif"
+USER_LOGO = "🧑"
+ASSISTANT_LOGO = "🧘"
 
 # Configure Gemini API
 genai.configure(api_key="AIzaSyB0x0Fv6jiluu8JdFToe4QKXQRHK8SMmrA")
@@ -18,7 +29,6 @@ generation_config = {
     "top_p": 0.95,
     "top_k": 40,
     "max_output_tokens": 8192,
-    "response_mime_type": "text/plain",
 }
 
 model = genai.GenerativeModel(
@@ -36,42 +46,79 @@ model = genai.GenerativeModel(
     - Use positive reinforcement and validate emotions.
     - Avoid medical diagnoses but encourage seeking professional help.
     - Offer mindfulness tips, breathing exercises, and self-care suggestions.
-    Note: Be concise in your responses don't give overwhelming responses unnecessarily. Yet, be detailed wherever requied.
-
+    Note: Be concise in your responses don't give overwhelming responses unnecessarily. Yet, be detailed wherever required.
     """
 )
 
 def clean_markdown(text):
-    # Remove headers
     text = re.sub(r'#+\s*', '', text)
-    # Remove bold and italic markers
     text = re.sub(r'\*+', '', text)
-    # Remove bullet points
     text = re.sub(r'^\s*[-*]\s*', '', text, flags=re.MULTILINE)
-    # Remove code blocks
     text = re.sub(r'`{1,3}.*?`{1,3}', '', text, flags=re.DOTALL)
-    # Remove links
-    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+    text = re.sub(r'$$([^$$]+)\]$$[^$$]+\)', r'\1', text)
     return text.strip()
+
+def display_message(message):
+    """Display a message with custom styling"""
+    if message["role"] == "user":
+        st.markdown(
+            f"""
+            <div style='display: flex; justify-content: flex-end;'>
+                <div style='background-color: {USER_COLOR}; color: {USER_TEXT_COLOR}; padding: 10px; 
+                border-radius: {BORDER_RADIUS}; margin: 5px; max-width: 70%; font-family: {FONT_FAMILY};'>
+                    <span>{message["content"]}</span> {USER_LOGO}
+                </div>
+            </div>
+            """, unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            f"""
+            <div style='display: flex; justify-content: flex-start;'>
+                <div style='background-color: {ASSISTANT_COLOR}; color: {ASSISTANT_TEXT_COLOR}; padding: 10px; 
+                border-radius: {BORDER_RADIUS}; margin: 5px; max-width: 70%; font-family: {FONT_FAMILY};'>
+                    {ASSISTANT_LOGO} <span>{message["content"]}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True
+        )
 
 # Initialize chat session
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [{"role": "assistant", "content": "Hello! I'm here to support you. How are you feeling today?"}]
 
+# Sidebar
+with st.sidebar:
+    st.title("🧘 Mental Health Assistant")
+    st.write("A safe space for emotional support and mental wellness.")
+    
+    # Clear chat button
+    if st.button('Clear Chat History'):
+        st.session_state.messages = [{"role": "assistant", "content": "Hello! I'm here to support you. How are you feeling today?"}]
+        st.rerun()
+
+# Main content area
 st.title("Voice AI Mental Health Assistant")
 
 # Display chat history
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    display_message(message)
 
-# Fixed input field at the bottom
-with st.container():
-    col1, col2 = st.columns([8, 1])
-    with col1:
-        user_text_input = st.text_input("Type your message:", "", key="user_input")
-    with col2:
-        audio = audio_recorder()
+# Create a container for input elements at the bottom
+input_container = st.container()
+
+# Push the input container to the bottom using an empty element
+st.markdown('<div style="height: 200px"></div>', unsafe_allow_html=True)
+
+# Input area
+with input_container:
+    cols = st.columns([8, 1])
+    
+    with cols[0]:
+        user_input = st.chat_input("Type your message here...")
+    
+    with cols[1]:
+        audio = audio_recorder(key="audio_recorder")
 
 # Process voice input
 if audio is not None:
@@ -85,31 +132,29 @@ if audio is not None:
         try:
             user_input = recognizer.recognize_google(audio_data)
             st.session_state.messages.append({"role": "user", "content": user_input})
+            st.rerun()
         except sr.UnknownValueError:
-            st.write("Could not understand audio")
+            st.error("Could not understand audio")
         except sr.RequestError:
-            st.write("Speech recognition service unavailable")
+            st.error("Speech recognition service unavailable")
 
     os.remove(tmp_filename)
 
 # Process text input
-if user_text_input:
-    st.session_state.messages.append({"role": "user", "content": user_text_input})
-
-if st.session_state.messages:
-    # Send entire chat history for context
-    conversation_history = [msg["content"] for msg in st.session_state.messages]
-    response = model.generate_content(conversation_history)
-    response_text = response.text
-    response_text = clean_markdown(response_text)
-    st.session_state.messages.append({"role": "assistant", "content": response_text})
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
     
-    with st.chat_message("assistant"):
-        st.markdown(response_text)
+    with st.spinner("Thinking..."):
+        conversation_history = [msg["content"] for msg in st.session_state.messages]
+        response = model.generate_content(conversation_history)
+        response_text = clean_markdown(response.text)
+        st.session_state.messages.append({"role": "assistant", "content": response_text})
+        
+        # Convert response to speech
+        tts = gTTS(text=response_text, lang='en')
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tts_file:
+            tts.save(tts_file.name)
+            st.audio(tts_file.name, format='audio/mp3')
+            os.remove(tts_file.name)
     
-    # Convert response to speech
-    tts = gTTS(text=response_text, lang='en')
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tts_file:
-        tts.save(tts_file.name)
-        st.audio(tts_file.name, format='audio/mp3')
-        os.remove(tts_file.name)
+    st.rerun()
