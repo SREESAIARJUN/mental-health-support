@@ -67,6 +67,19 @@ def text_to_speech(text):
         tts.save(temp_audio.name)
         return temp_audio.name  # Return file path
 
+def clean_markdown(text):
+    # Remove headers
+    text = re.sub(r'#+\s*', '', text)
+    # Remove bold and italic markers
+    text = re.sub(r'\*+', '', text)
+    # Remove bullet points
+    text = re.sub(r'^\s*[-*]\s*', '', text, flags=re.MULTILINE)
+    # Remove code blocks
+    text = re.sub(r'`{1,3}.*?`{1,3}', '', text, flags=re.DOTALL)
+    # Remove links
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+    return text.strip()
+
 # Streamlit UI
 st.title("Voice AI Assistant using Gemini API")
 
@@ -79,6 +92,6 @@ if audio_bytes:
     if user_input:
         response = get_gemini_response(user_input)
         st.write("AI Response:", response)
+        response = clean_markdown(response)
         audio_file = text_to_speech(response)
         st.audio(audio_file, format="audio/mp3")
-
