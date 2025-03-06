@@ -9,6 +9,28 @@ from gtts import gTTS
 import tempfile
 import os
 
+# Add CSS for fixed input positioning
+st.markdown("""
+    <style>
+        .fixed-input {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: white;
+            padding: 20px;
+            z-index: 1000;
+            border-top: 1px solid #ddd;
+        }
+        
+        .main-content {
+            margin-bottom: 100px;  /* Space for fixed input */
+        }
+        
+        footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
 # Configure Gemini API
 genai.configure(api_key="AIzaSyB0x0Fv6jiluu8JdFToe4QKXQRHK8SMmrA")
 
@@ -37,7 +59,6 @@ model = genai.GenerativeModel(
     - Avoid medical diagnoses but encourage seeking professional help.
     - Offer mindfulness tips, breathing exercises, and self-care suggestions.
     Note: Be concise in your responses don't give overwhelming responses unnecessarily. Yet, be detailed wherever requied.
-
     """
 )
 
@@ -51,27 +72,31 @@ def clean_markdown(text):
     # Remove code blocks
     text = re.sub(r'`{1,3}.*?`{1,3}', '', text, flags=re.DOTALL)
     # Remove links
-    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+    text = re.sub(r'$$([^$$]+)\]$$[^$$]+\)', r'\1', text)
     return text.strip()
 
 # Initialize chat session
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Main content
+st.markdown('<div class="main-content">', unsafe_allow_html=True)
 st.title("Voice AI Mental Health Assistant")
 
 # Display chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+st.markdown('</div>', unsafe_allow_html=True)
 
 # Fixed input field at the bottom
-with st.container():
-    col1, col2 = st.columns([8, 1])
-    with col1:
-        user_text_input = st.text_input("Type your message:", "", key="user_input")
-    with col2:
-        audio = audio_recorder()
+st.markdown('<div class="fixed-input">', unsafe_allow_html=True)
+col1, col2 = st.columns([8, 1])
+with col1:
+    user_text_input = st.text_input("Type your message:", "", key="user_input")
+with col2:
+    audio = audio_recorder()
+st.markdown('</div>', unsafe_allow_html=True)
 
 # Process voice input
 if audio is not None:
