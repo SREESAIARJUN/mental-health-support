@@ -2,4 +2,3 @@ streamlit
 speechrecognition
 gtts
 google-generativeai
-mpg321
