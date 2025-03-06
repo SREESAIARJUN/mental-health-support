@@ -1,8 +1,10 @@
 import streamlit as st
-import speech_recognition as sr
+from audio_recorder_streamlit import audio_recorder
 from gtts import gTTS
 import os
 import google.generativeai as genai
+import tempfile
+import speech_recognition as sr
 
 # Configure Gemini API
 genai.configure(api_key="AIzaSyCj7X_uJVs2wxNlISNoYv8clt-Vq7u0aiM")
@@ -36,20 +38,24 @@ model = genai.GenerativeModel(
 
 chat_session = model.start_chat(history=[])
 
-def recognize_speech():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.write("Listening...")
-        recognizer.adjust_for_ambient_noise(source)
-        audio = recognizer.listen(source)
-    
-    try:
-        text = recognizer.recognize_google(audio)
-        return text
-    except sr.UnknownValueError:
-        return "Sorry, I couldn't understand the audio."
-    except sr.RequestError:
-        return "Error connecting to Google Speech Recognition."
+def recognize_speech(audio_bytes):
+    if audio_bytes:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            temp_audio.write(audio_bytes)
+            temp_audio_path = temp_audio.name
+        
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(temp_audio_path) as source:
+            audio = recognizer.record(source)
+        
+        try:
+            text = recognizer.recognize_google(audio)
+            return text
+        except sr.UnknownValueError:
+            return "Sorry, I couldn't understand the audio."
+        except sr.RequestError:
+            return "Error connecting to Google Speech Recognition."
+    return "No audio input detected."
 
 def get_gemini_response(prompt):
     response = chat_session.send_message(prompt)
@@ -63,8 +69,10 @@ def text_to_speech(text):
 # Streamlit UI
 st.title("Voice AI Assistant using Gemini API")
 
-if st.button("Start Listening"):
-    user_input = recognize_speech()
+audio_bytes = audio_recorder()
+if audio_bytes:
+    st.write("Processing audio...")
+    user_input = recognize_speech(audio_bytes)
     st.write("You said:", user_input)
     
     if user_input:
