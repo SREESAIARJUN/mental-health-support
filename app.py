@@ -9,25 +9,51 @@ from gtts import gTTS
 import tempfile
 import os
 
+# Configure page
+st.set_page_config(page_title="Mental Health Assistant", layout="wide")
+
 # Add CSS for fixed input positioning
 st.markdown("""
     <style>
-        .fixed-input {
+        /* Hide Streamlit elements */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        
+        /* Container styles */
+        .stApp {
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Chat container */
+        .chat-container {
+            margin-bottom: 120px;  /* Space for input container */
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        /* Input container */
+        .input-container {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
             background-color: white;
-            padding: 20px;
-            z-index: 1000;
             border-top: 1px solid #ddd;
+            padding: 20px;
+            z-index: 100;
         }
         
-        .main-content {
-            margin-bottom: 100px;  /* Space for fixed input */
+        /* Remove default Streamlit padding */
+        .block-container {
+            padding: 0 !important;
         }
         
-        footer {visibility: hidden;}
+        div[data-testid="stVerticalBlock"] {
+            padding: 0 !important;
+            gap: 0 !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -79,8 +105,8 @@ def clean_markdown(text):
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Main content
-st.markdown('<div class="main-content">', unsafe_allow_html=True)
+# Main chat container
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 st.title("Voice AI Mental Health Assistant")
 
 # Display chat history
@@ -89,11 +115,11 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Fixed input field at the bottom
-st.markdown('<div class="fixed-input">', unsafe_allow_html=True)
+# Fixed input container at bottom
+st.markdown('<div class="input-container">', unsafe_allow_html=True)
 col1, col2 = st.columns([8, 1])
 with col1:
-    user_text_input = st.text_input("Type your message:", "", key="user_input")
+    user_text_input = st.text_input("Type your message:", "", key="user_input", label_visibility="collapsed")
 with col2:
     audio = audio_recorder()
 st.markdown('</div>', unsafe_allow_html=True)
