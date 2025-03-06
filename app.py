@@ -101,15 +101,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Sidebar for mic button
+st.sidebar.title("Voice Input")
+audio_bytes = audio_recorder()
+
 # Display chat history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-
-# Mic button centered at the bottom
-st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
-audio_bytes = audio_recorder()
-st.markdown("</div>", unsafe_allow_html=True)
 
 if audio_bytes:
     st.write("Processing audio...")
