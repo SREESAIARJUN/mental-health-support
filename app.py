@@ -3,6 +3,7 @@ import google.generativeai as genai
 from audio_recorder_streamlit import audio_recorder
 import numpy as np
 import io
+import soundfile as sf
 import speech_recognition as sr
 from gtts import gTTS
 import tempfile
@@ -21,7 +22,7 @@ generation_config = {
 }
 
 model = genai.GenerativeModel(
-    model_name="gemini-2.0-pro-exp-02-05",
+    model_name="gemini-2.0-flash-lite",
     generation_config=generation_config,
     safety_settings=[
         {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
@@ -41,11 +42,6 @@ model = genai.GenerativeModel(
 # Initialize chat session
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
-chat = model.start_chat(history=[
-    {"role": msg["role"], "parts": [msg["content"]]}
-    for msg in st.session_state.messages
-])
 
 st.title("Voice AI Mental Health Assistant")
 
@@ -76,8 +72,10 @@ if st.session_state.messages:
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-
-    response = chat.send_message(st.session_state.messages[-1]["content"])
+    
+    # Send entire chat history for context
+    conversation_history = [msg["content"] for msg in st.session_state.messages]
+    response = model.generate_content(conversation_history)
     response_text = response.text
     st.session_state.messages.append({"role": "assistant", "content": response_text})
     with st.chat_message("assistant"):
