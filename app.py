@@ -10,43 +10,44 @@ import re
 # Page configuration
 st.set_page_config(page_title="🧘 Mental Health Assistant", layout="wide")
 
-# Custom CSS to fix input at bottom
+# Custom CSS for styling
 st.markdown("""
     <style>
         .stApp {
             margin: 0;
             padding: 0;
-            overflow: hidden;
         }
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
+        header {visibility: hidden;}
         
-        /* Chat container styles */
-        .chat-container {
-            height: calc(100vh - 180px);
-            overflow-y: auto;
-            padding-bottom: 80px;
+        /* Audio recorder button styling */
+        .audio-recorder {
+            position: fixed;
+            bottom: 75px;
+            right: 20px;
+            z-index: 1001;
         }
         
-        /* Fixed input container styles */
-        .input-container {
+        /* Chat container */
+        .chat-messages {
+            margin-bottom: 70px;
+        }
+        
+        /* Streamlit chat input styling */
+        .stChatInput {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
             background-color: white;
             padding: 20px;
-            border-top: 1px solid #ddd;
             z-index: 1000;
         }
         
-        /* Hide Streamlit's default elements */
-        .stTextInput, .stAudio {
-            margin-bottom: 0 !important;
-        }
-        
-        div[data-testid="stVerticalBlock"] {
-            padding-bottom: 0px;
+        /* Message styling */
+        .stMarkdown {
+            min-height: 0;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -124,19 +125,6 @@ def display_message(message):
             """, unsafe_allow_html=True
         )
 
-def process_audio_to_text(audio_data):
-    """Convert audio to text using speech recognition"""
-    recognizer = sr.Recognizer()
-    try:
-        text = recognizer.recognize_google(audio_data)
-        return text
-    except sr.UnknownValueError:
-        st.error("Could not understand audio")
-        return None
-    except sr.RequestError:
-        st.error("Speech recognition service unavailable")
-        return None
-
 def generate_response(prompt):
     """Generate response using the Gemini model"""
     conversation_history = [msg["content"] for msg in st.session_state.messages]
@@ -167,20 +155,19 @@ with st.sidebar:
 # Main chat container
 st.title("Voice AI Mental Health Assistant")
 
-# Chat messages container
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+# Chat messages
+st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
 for message in st.session_state.messages:
     display_message(message)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Fixed input container
-st.markdown('<div class="input-container">', unsafe_allow_html=True)
-col1, col2 = st.columns([8, 1])
-with col1:
-    user_input = st.text_input("Type your message:", key="user_text_input", label_visibility="collapsed")
-with col2:
-    audio = audio_recorder(key="audio_recorder")
+# Audio recorder
+st.markdown('<div class="audio-recorder">', unsafe_allow_html=True)
+audio = audio_recorder(key="audio_recorder")
 st.markdown('</div>', unsafe_allow_html=True)
+
+# Chat input
+prompt = st.chat_input("Type your message here...")
 
 # Handle audio input
 if audio is not None:
@@ -188,11 +175,11 @@ if audio is not None:
         tmp_file.write(audio)
         tmp_filename = tmp_file.name
 
+    recognizer = sr.Recognizer()
     with sr.AudioFile(tmp_filename) as source:
-        audio_data = sr.Recognizer().record(source)
-        transcribed_text = process_audio_to_text(audio_data)
-        
-        if transcribed_text:
+        audio_data = recognizer.record(source)
+        try:
+            transcribed_text = recognizer.recognize_google(audio_data)
             st.session_state.messages.append({"role": "user", "content": transcribed_text})
             
             with st.spinner("Thinking..."):
@@ -201,18 +188,20 @@ if audio is not None:
                 text_to_speech(response_text)
             
             st.rerun()
+        except sr.UnknownValueError:
+            st.error("Could not understand audio")
+        except sr.RequestError:
+            st.error("Speech recognition service unavailable")
 
     os.remove(tmp_filename)
 
 # Handle text input
-if user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
+if prompt:
+    st.session_state.messages.append({"role": "user", "content": prompt})
     
     with st.spinner("Thinking..."):
-        response_text = generate_response(user_input)
+        response_text = generate_response(prompt)
         st.session_state.messages.append({"role": "assistant", "content": response_text})
         text_to_speech(response_text)
     
-    # Clear the input field
-    st.session_state.user_text_input = ""
     st.rerun()
