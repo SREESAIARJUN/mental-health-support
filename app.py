@@ -3,11 +3,11 @@ import google.generativeai as genai
 from audio_recorder_streamlit import audio_recorder
 import numpy as np
 import io
+import re
 import speech_recognition as sr
 from gtts import gTTS
 import tempfile
 import os
-import re
 
 # Configure Gemini API
 genai.configure(api_key="AIzaSyB0x0Fv6jiluu8JdFToe4QKXQRHK8SMmrA")
@@ -37,6 +37,7 @@ model = genai.GenerativeModel(
     - Avoid medical diagnoses but encourage seeking professional help.
     - Offer mindfulness tips, breathing exercises, and self-care suggestions.
     Note: Be concise in your responses don't give overwhelming responses unnecessarily. Yet, be detailed wherever requied.
+
     """
 )
 
@@ -59,11 +60,20 @@ if "messages" not in st.session_state:
 
 st.title("Voice AI Mental Health Assistant")
 
-# Sidebar for microphone button
-with st.sidebar:
-    st.write("### Voice Input")
-    audio = audio_recorder()
+# Display chat history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
+# Fixed input field at the bottom
+with st.container():
+    col1, col2 = st.columns([8, 1])
+    with col1:
+        user_text_input = st.text_input("Type your message:", "", key="user_input")
+    with col2:
+        audio = audio_recorder()
+
+# Process voice input
 if audio is not None:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
         tmp_file.write(audio)
@@ -82,22 +92,18 @@ if audio is not None:
 
     os.remove(tmp_filename)
 
-# Text input for user messages
-user_text_input = st.text_input("Type your message:", "", key="user_input")
+# Process text input
 if user_text_input:
     st.session_state.messages.append({"role": "user", "content": user_text_input})
 
 if st.session_state.messages:
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-    
     # Send entire chat history for context
     conversation_history = [msg["content"] for msg in st.session_state.messages]
     response = model.generate_content(conversation_history)
     response_text = response.text
     response_text = clean_markdown(response_text)
     st.session_state.messages.append({"role": "assistant", "content": response_text})
+    
     with st.chat_message("assistant"):
         st.markdown(response_text)
     
