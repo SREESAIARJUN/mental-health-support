@@ -8,7 +8,6 @@ from gtts import gTTS
 import tempfile
 import os
 import re
-import time
 
 # Configure Gemini API
 genai.configure(api_key="AIzaSyB0x0Fv6jiluu8JdFToe4QKXQRHK8SMmrA")
@@ -37,28 +36,33 @@ model = genai.GenerativeModel(
     - Use positive reinforcement and validate emotions.
     - Avoid medical diagnoses but encourage seeking professional help.
     - Offer mindfulness tips, breathing exercises, and self-care suggestions.
-    - Be concise in your responses, but detailed when necessary.
+     Note: Be concise in your responses don't give overwhelming responses unnecessarily. Yet, be detailed wherever requied.
     """
 )
 
 def clean_markdown(text):
-    """Cleans markdown syntax from text."""
-    text = re.sub(r'#+\s*', '', text)  # Remove headers
-    text = re.sub(r'\*+', '', text)  # Remove bold/italic markers
-    text = re.sub(r'^\s*[-*]\s*', '', text, flags=re.MULTILINE)  # Remove bullet points
-    text = re.sub(r'`{1,3}.*?`{1,3}', '', text, flags=re.DOTALL)  # Remove code blocks
-    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)  # Remove links
+    # Remove headers
+    text = re.sub(r'#+\s*', '', text)
+    # Remove bold and italic markers
+    text = re.sub(r'\*+', '', text)
+    # Remove bullet points
+    text = re.sub(r'^\s*[-*]\s*', '', text, flags=re.MULTILINE)
+    # Remove code blocks
+    text = re.sub(r'`{1,3}.*?`{1,3}', '', text, flags=re.DOTALL)
+    # Remove links
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
     return text.strip()
+
 
 # Initialize chat session
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-st.title("🎙️ Voice AI Mental Health Assistant")
+st.title("Voice AI Mental Health Assistant")
 
 # Sidebar for microphone button
 with st.sidebar:
-    st.write("### 🎤 Voice Input")
+    st.write("### Voice Input")
     audio = audio_recorder()
 
 if audio is not None:
@@ -73,9 +77,9 @@ if audio is not None:
             user_input = recognizer.recognize_google(audio_data)
             st.session_state.messages.append({"role": "user", "content": user_input})
         except sr.UnknownValueError:
-            st.write("⚠️ Could not understand audio")
+            st.write("Could not understand audio")
         except sr.RequestError:
-            st.write("⚠️ Speech recognition service unavailable")
+            st.write("Speech recognition service unavailable")
 
     os.remove(tmp_filename)
 
@@ -87,11 +91,9 @@ if st.session_state.messages:
     # Send entire chat history for context
     conversation_history = [msg["content"] for msg in st.session_state.messages]
     response = model.generate_content(conversation_history)
-    response_text = clean_markdown(response.text)
-    
-    # Append assistant response to session
+    response_text = response.text
+    response_text = clean_markdown(response_text)
     st.session_state.messages.append({"role": "assistant", "content": response_text})
-    
     with st.chat_message("assistant"):
         st.markdown(response_text)
     
@@ -99,19 +101,5 @@ if st.session_state.messages:
     tts = gTTS(text=response_text, lang='en')
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tts_file:
         tts.save(tts_file.name)
-        audio_file_path = tts_file.name
-
-    # Embed HTML audio player with autoplay
-    st.markdown(
-        f"""
-        <audio autoplay>
-            <source src="{audio_file_path}" type="audio/mp3">
-            Your browser does not support the audio element.
-        </audio>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Allow time for playback before deleting the file
-    time.sleep(3)  # Ensures file exists long enough for the browser to play it
-    os.remove(audio_file_path)
+        st.audio(tts_file.name, format='audio/mp3')
+        os.remove(tts_file.name)
