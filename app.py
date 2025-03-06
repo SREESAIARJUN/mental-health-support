@@ -19,7 +19,7 @@ generation_config = {
 }
 
 model = genai.GenerativeModel(
-    model_name="gemini-2.0-pro-exp-02-05",
+    model_name="gemini-2.0-flash-lite",
     generation_config=generation_config,
     safety_settings=[
         {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
@@ -63,8 +63,9 @@ def get_gemini_response(prompt):
 
 def text_to_speech(text):
     tts = gTTS(text=text, lang='en')
-    tts.save("response.mp3")
-    os.system("mpg321 response.mp3" if os.name != "nt" else "start response.mp3")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio:
+        tts.save(temp_audio.name)
+        return temp_audio.name  # Return file path
 
 # Streamlit UI
 st.title("Voice AI Assistant using Gemini API")
@@ -78,4 +79,6 @@ if audio_bytes:
     if user_input:
         response = get_gemini_response(user_input)
         st.write("AI Response:", response)
-        text_to_speech(response)
+        audio_file = text_to_speech(response)
+        st.audio(audio_file, format="audio/mp3")
+
