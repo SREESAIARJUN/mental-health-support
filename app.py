@@ -3,7 +3,6 @@ import google.generativeai as genai
 from audio_recorder_streamlit import audio_recorder
 import numpy as np
 import io
-import soundfile as sf
 import speech_recognition as sr
 from gtts import gTTS
 import tempfile
